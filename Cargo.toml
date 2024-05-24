@@ -13,3 +13,5 @@ futures = "0.3.30"
 serde = "1.0.199"
 log = "0.4.21"
 anyhow = "1.0.86"
+clap = { version= "4.5.4", features=["derive"]}
+env_logger = "0.11.3"
