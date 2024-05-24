@@ -20,7 +20,7 @@ jobs:
       - name: Checkout Sources
         uses: actions/checkout@v4
       - run: |
-          apt-get install -y protobuf-compiler
+          make install-dependencies
       - name: Install Toolchain
         uses: actions-rs/toolchain@v1
         with:
@@ -50,7 +50,7 @@ jobs:
       - name: Install Clippy
         run: rustup component add clippy
       - run: |
-          apt-get install -y protobuf-compiler
+          make install-dependencies
       - name: Install RustFmt
         run: rustup component add rustfmt
       - name: Rust Cache
@@ -97,7 +97,7 @@ jobs:
       - name: Checkout Sources
         uses: actions/checkout@v4
       - run: |
-          apt-get install -y protobuf-compiler
+          make install-dependencies
       - name: Install Toolchain
         uses: actions-rs/toolchain@v1
         with:
