@@ -1,7 +1,9 @@
-use libp2p::{identity::Keypair, PeerId};
+use libp2p::{identity::Keypair, noise, tcp, yamux, PeerId, Swarm};
 use log::{error, info};
 
-pub struct WakuLightNode {}
+pub struct WakuLightNode {
+    pub swarm: Swarm<libp2p::swarm::dummy::Behaviour>,
+}
 
 impl WakuLightNode {
     pub fn new(keypair: Option<Keypair>, _pubsub_topic: Option<String>) -> Result<Self, Error> {
@@ -9,7 +11,18 @@ impl WakuLightNode {
         let local_peer_id = PeerId::from(local_key.public());
         info!("Libp2p local peer id: {:?}", local_peer_id);
 
-        Ok(Self {})
+        let swarm = libp2p::SwarmBuilder::with_new_identity()
+            .with_tokio()
+            .with_tcp(
+                tcp::Config::default(),
+                noise::Config::new,
+                yamux::Config::default,
+            )
+            .unwrap()
+            .with_behaviour(|_key| libp2p::swarm::dummy::Behaviour {})
+            .unwrap()
+            .build();
+        Ok(Self { swarm })
     }
 }
 
