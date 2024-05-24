@@ -1,5 +1,9 @@
 syntax = "proto3";
 
+package waku.lightpush;
+
+import "message.proto";
+
 message PushRequest {
     string pubsub_topic = 1;
     WakuMessage message = 2;

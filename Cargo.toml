@@ -12,3 +12,7 @@ libp2p-mplex = "0.41.0"
 futures = "0.3.30"
 serde = "1.0.199"
 log = "0.4.21"
+prost = "0.12"
+
+[build-dependencies]
+tonic-build = "0.11"
