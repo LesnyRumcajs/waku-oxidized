@@ -12,6 +12,8 @@ log = "0.4.21"
 prost = "0.12"
 anyhow = "1.0.86"
 async-trait = "0.1.80"
+env_logger = "0.11.3"
+clap = { version= "4.5.4", features=["derive"]}
 
 [build-dependencies]
 tonic-build = "0.11"

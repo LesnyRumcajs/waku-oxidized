@@ -5,9 +5,7 @@ use libp2p::{
 use log::{error, info};
 pub mod peer_exchange;
 
-pub struct WakuLightNode {
-    pub swarm: Swarm<request_response::Behaviour<peer_exchange::Codec>>,
-}
+use std::time::Duration;
 
 pub struct WakuLightNodeConfig {
     pub peers: Vec<Multiaddr>,
@@ -23,6 +21,10 @@ impl WakuLightNodeConfig {
     }
 }
 
+pub struct WakuLightNode {
+    pub swarm: Swarm<request_response::Behaviour<peer_exchange::Codec>>,
+}
+
 impl WakuLightNode {
     pub fn new_with_config(config: WakuLightNodeConfig) -> Result<Self, Error> {
         let local_peer_id = PeerId::from(config.keypair.public());
@@ -31,10 +33,11 @@ impl WakuLightNode {
         let mut swarm = libp2p::SwarmBuilder::with_existing_identity(config.keypair)
             .with_tokio()
             .with_tcp(
-                tcp::Config::default(),
+                tcp::Config::default().nodelay(true),
                 noise::Config::new,
                 yamux::Config::default,
             )?
+            .with_dns()?
             .with_behaviour(|_key| {
                 request_response::Behaviour::new(
                     [(
@@ -46,6 +49,14 @@ impl WakuLightNode {
                 )
             })
             .unwrap()
+            .with_swarm_config(|config| {
+                config
+                    .with_notify_handler_buffer_size(
+                        std::num::NonZeroUsize::new(20).expect("Not zero"),
+                    )
+                    .with_per_connection_event_buffer_size(64)
+                    .with_idle_connection_timeout(Duration::from_secs(60 * 10))
+            })
             .build();
 
         for peer in config.peers {
@@ -72,4 +83,6 @@ pub enum Error {
     Dial(#[from] libp2p::swarm::DialError),
     #[error("Noise: {0}")]
     Noise(#[from] libp2p::noise::Error),
+    #[error("Io: {0}")]
+    Io(#[from] std::io::Error),
 }
