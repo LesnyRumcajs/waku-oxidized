@@ -93,6 +93,7 @@ impl WakuLightNode {
                     meta: None,
                     version: None,
                     timestamp: None,
+                    rate_limit_proof: None,
                 }),
             },
         );

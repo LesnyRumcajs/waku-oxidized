@@ -12,7 +12,7 @@ message PushRequest {
 message PushResponse {
     bool is_success = 1;
     // Error messages, etc
-    string info = 2;
+    optional string info = 2;
 }
 
 message PushRPC {

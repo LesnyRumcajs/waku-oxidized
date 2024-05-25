@@ -35,7 +35,7 @@ impl request_response::Codec for Codec {
     where
         T: AsyncRead + Unpin + Send,
     {
-        let mut vec = Vec::new();
+        let mut vec = vec![0; REQUEST_SIZE_MAXIMUM as usize];
 
         io.take(REQUEST_SIZE_MAXIMUM).read_to_end(&mut vec).await?;
 
@@ -51,7 +51,7 @@ impl request_response::Codec for Codec {
     where
         T: AsyncRead + Unpin + Send,
     {
-        let mut vec = Vec::new();
+        let mut vec = vec![0; RESPONSE_SIZE_MAXIMUM as usize];
 
         io.take(RESPONSE_SIZE_MAXIMUM).read_to_end(&mut vec).await?;
         let response = messages::PushResponse::decode(&vec[..])?;
