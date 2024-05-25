@@ -24,7 +24,7 @@ impl WakuLightNodeConfig {
 }
 
 pub struct WakuLightNode {
-    pub swarm: Swarm<request_response::Behaviour<peer_exchange::Codec>>,
+    pub swarm: Swarm<WakuLightNodeBehaviour>,
 }
 
 impl WakuLightNode {
@@ -40,16 +40,7 @@ impl WakuLightNode {
                 yamux::Config::default,
             )?
             .with_dns()?
-            .with_behaviour(|_key| {
-                request_response::Behaviour::new(
-                    [(
-                        // TODO what should the protocol name be
-                        StreamProtocol::new("/SOME_NAME"),
-                        request_response::ProtocolSupport::Full,
-                    )],
-                    request_response::Config::default(),
-                )
-            })
+            .with_behaviour(|_key| WakuLightNodeBehaviour::new())
             .unwrap()
             .with_swarm_config(|config| {
                 config
@@ -68,7 +59,7 @@ impl WakuLightNode {
     }
 
     pub fn request_peers(&mut self, peer: &PeerId) {
-        self.swarm.behaviour_mut().send_request(
+        self.swarm.behaviour_mut().peer_exchange.send_request(
             peer,
             peer_exchange::messages::PeerExchangeQuery { num_peers: 5 },
         );
@@ -79,6 +70,20 @@ impl WakuLightNode {
 #[behaviour(out_event = "WakuLightNodeEvent")]
 pub struct WakuLightNodeBehaviour {
     peer_exchange: request_response::Behaviour<peer_exchange::Codec>,
+}
+
+impl WakuLightNodeBehaviour {
+    fn new() -> Self {
+        Self {
+            peer_exchange: request_response::Behaviour::new(
+                [(
+                    StreamProtocol::new("/vac/waku/peer-exchange/2.0.0-alpha1"),
+                    request_response::ProtocolSupport::Full,
+                )],
+                request_response::Config::default(),
+            ),
+        }
+    }
 }
 
 #[derive(Debug)]

@@ -1,3 +1,4 @@
+use libp2p::futures::StreamExt;
 use std::str::FromStr;
 
 use clap::Parser;
@@ -22,8 +23,12 @@ async fn main() -> anyhow::Result<()> {
             .map(|peer| Multiaddr::from_str(peer).unwrap())
             .collect(),
     );
-    let node = WakuLightNode::new_with_config(config)?;
-    std::thread::sleep(std::time::Duration::from_secs(5));
+    let mut node = WakuLightNode::new_with_config(config)?;
+
+    while let Some(e) = node.swarm.next().await {
+        println!("Got event {:?}", e);
+    }
+
     for peer in node.swarm.connected_peers() {
         println!("connected to {:?}", peer);
     }
