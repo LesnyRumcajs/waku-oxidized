@@ -27,10 +27,10 @@ async fn main() -> anyhow::Result<()> {
 
     while let Some(e) = node.swarm.next().await {
         println!("Got event {:?}", e);
+        for peer in node.swarm.connected_peers() {
+            println!("Connected to {:?}", peer);
+        }
     }
 
-    for peer in node.swarm.connected_peers() {
-        println!("connected to {:?}", peer);
-    }
     Ok(())
 }
