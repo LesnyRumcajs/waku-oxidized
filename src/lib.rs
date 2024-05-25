@@ -1,8 +1,9 @@
 use libp2p::{
-    identity::Keypair, noise, request_response, tcp, yamux, Multiaddr, PeerId, StreamProtocol,
-    Swarm,
+    identity::Keypair, noise, request_response, swarm::NetworkBehaviour, tcp, yamux, Multiaddr,
+    PeerId, StreamProtocol, Swarm,
 };
 use log::{error, info};
+use peer_exchange::messages;
 pub mod peer_exchange;
 
 use std::time::Duration;
@@ -70,6 +71,29 @@ impl WakuLightNode {
             peer,
             peer_exchange::messages::PeerExchangeQuery { num_peers: 5 },
         );
+    }
+}
+
+#[derive(NetworkBehaviour)]
+#[behaviour(out_event = "WakuLightNodeEvent")]
+pub struct WakuLightNodeBehaviour {
+    peer_exchange: request_response::Behaviour<peer_exchange::Codec>,
+}
+
+#[derive(Debug)]
+pub enum WakuLightNodeEvent {
+    PeerExchange(
+        request_response::Event<messages::PeerExchangeQuery, messages::PeerExchangeResponse>,
+    ),
+}
+
+impl From<request_response::Event<messages::PeerExchangeQuery, messages::PeerExchangeResponse>>
+    for WakuLightNodeEvent
+{
+    fn from(
+        event: request_response::Event<messages::PeerExchangeQuery, messages::PeerExchangeResponse>,
+    ) -> Self {
+        Self::PeerExchange(event)
     }
 }
 
