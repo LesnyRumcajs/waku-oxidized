@@ -9,7 +9,10 @@ mod light_push;
 mod metadata;
 mod peer_exchange;
 
-use std::time::Duration;
+use std::{
+    num::TryFromIntError,
+    time::{Duration, SystemTime, UNIX_EPOCH},
+};
 
 const DEFAULT_PUBSUB_TOPIC: &str = "/waku/2/default-waku/proto";
 
@@ -69,7 +72,16 @@ impl WakuLightNode {
         );
     }
 
-    pub fn send_message(&mut self, peer: &PeerId, content_topic: String, payload: Vec<u8>) {
+    pub fn send_message(
+        &mut self,
+        peer: &PeerId,
+        content_topic: String,
+        payload: Vec<u8>,
+    ) -> Result<(), Error> {
+        let timestamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)?
+            .as_secs()
+            .try_into()?;
         self.swarm.behaviour_mut().light_push.send_request(
             peer,
             light_push::messages::PushRequest {
@@ -79,11 +91,12 @@ impl WakuLightNode {
                     payload,
                     ephemeral: Some(false),
                     meta: None,
-                    timestamp: None,
-                    version: None,
+                    version: Some(1),
+                    timestamp: Some(timestamp),
                 }),
             },
         );
+        Ok(())
     }
 }
 
@@ -199,4 +212,8 @@ pub enum Error {
     Noise(#[from] libp2p::noise::Error),
     #[error("Io: {0}")]
     Io(#[from] std::io::Error),
+    #[error("System time: {0}")]
+    SystemTime(#[from] std::time::SystemTimeError),
+    #[error("Int conversion: {0}")]
+    IntConversion(#[from] TryFromIntError),
 }
