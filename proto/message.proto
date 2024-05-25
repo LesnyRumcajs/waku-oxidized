@@ -1,5 +1,7 @@
 syntax = "proto3";
 
+package waku.message;
+
 message WakuMessage {
   bytes payload = 1;
   string content_topic = 2;

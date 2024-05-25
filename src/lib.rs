@@ -5,10 +5,13 @@ use libp2p::{
 use log::{error, info};
 use peer_exchange::messages;
 
+mod light_push;
 mod metadata;
-pub mod peer_exchange;
+mod peer_exchange;
 
 use std::time::Duration;
+
+const DEFAULT_PUBSUB_TOPIC: &str = "/waku/2/default-waku/proto";
 
 pub struct WakuLightNodeConfig {
     pub peers: Vec<Multiaddr>,
@@ -65,6 +68,23 @@ impl WakuLightNode {
             peer_exchange::messages::PeerExchangeQuery { num_peers: 5 },
         );
     }
+
+    pub fn send_message(&mut self, peer: &PeerId, content_topic: String, payload: Vec<u8>) {
+        self.swarm.behaviour_mut().light_push.send_request(
+            peer,
+            light_push::messages::PushRequest {
+                pubsub_topic: DEFAULT_PUBSUB_TOPIC.to_string(),
+                message: Some(light_push::message::WakuMessage {
+                    content_topic,
+                    payload,
+                    ephemeral: Some(false),
+                    meta: None,
+                    timestamp: None,
+                    version: None,
+                }),
+            },
+        );
+    }
 }
 
 #[derive(NetworkBehaviour)]
@@ -72,6 +92,7 @@ impl WakuLightNode {
 pub struct WakuLightNodeBehaviour {
     peer_exchange: request_response::Behaviour<peer_exchange::Codec>,
     metadata: request_response::Behaviour<metadata::Codec>,
+    light_push: request_response::Behaviour<light_push::Codec>,
 }
 
 impl WakuLightNodeBehaviour {
@@ -91,6 +112,13 @@ impl WakuLightNodeBehaviour {
                 )],
                 request_response::Config::default(),
             ),
+            light_push: request_response::Behaviour::new(
+                [(
+                    StreamProtocol::new("/vac/waku/metadata/1.0.0"),
+                    request_response::ProtocolSupport::Full,
+                )],
+                request_response::Config::default(),
+            ),
         }
     }
 }
@@ -104,6 +132,12 @@ pub enum WakuLightNodeEvent {
         request_response::Event<
             metadata::messages::WakuMetadataRequest,
             metadata::messages::WakuMetadataResponse,
+        >,
+    ),
+    LightPush(
+        request_response::Event<
+            light_push::messages::PushRequest,
+            light_push::messages::PushResponse,
         >,
     ),
 }
@@ -136,6 +170,23 @@ impl
     }
 }
 
+impl
+    From<
+        request_response::Event<
+            light_push::messages::PushRequest,
+            light_push::messages::PushResponse,
+        >,
+    > for WakuLightNodeEvent
+{
+    fn from(
+        event: request_response::Event<
+            light_push::messages::PushRequest,
+            light_push::messages::PushResponse,
+        >,
+    ) -> Self {
+        Self::LightPush(event)
+    }
+}
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error("Multiaddr: {0}")]

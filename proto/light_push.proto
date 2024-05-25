@@ -6,7 +6,7 @@ import "message.proto";
 
 message PushRequest {
     string pubsub_topic = 1;
-    WakuMessage message = 2;
+    waku.message.WakuMessage message = 2;
 }
 
 message PushResponse {
