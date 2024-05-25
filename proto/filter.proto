@@ -30,6 +30,6 @@ message FilterSubscribeResponse {
 
 // Protocol identifier: /vac/waku/filter-push/2.0.0-beta1
 message MessagePush {
-  WakuMessage waku_message = 1;
+  waku.message.WakuMessage waku_message = 1;
   optional string pubsub_topic = 2;
 }

@@ -40,6 +40,7 @@ async fn main() -> anyhow::Result<()> {
         if !requested {
             for peer in peers.iter() {
                 node.request_peers(peer);
+                node.send_message(peer, "some topic".to_string(), b"some message".to_vec());
                 requested = true;
             }
         }
