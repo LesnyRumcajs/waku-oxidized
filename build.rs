@@ -8,6 +8,7 @@ fn main() {
                 "proto/peer_exchange.proto",
                 "proto/light_push.proto",
                 "proto/filter.proto",
+                "proto/metadata.proto",
             ],
             &["proto/"],
         )
