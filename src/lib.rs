@@ -1,5 +1,12 @@
-use libp2p::{identity::Keypair, noise, tcp, yamux, Multiaddr, PeerId, Swarm};
+use libp2p::{
+    identity::Keypair, noise, request_response, swarm::NetworkBehaviour, tcp, yamux, Multiaddr,
+    PeerId, StreamProtocol, Swarm,
+};
 use log::{error, info};
+use peer_exchange::messages;
+
+pub mod peer_exchange;
+
 use std::time::Duration;
 
 pub struct WakuLightNodeConfig {
@@ -17,7 +24,7 @@ impl WakuLightNodeConfig {
 }
 
 pub struct WakuLightNode {
-    pub swarm: Swarm<libp2p::swarm::dummy::Behaviour>,
+    pub swarm: Swarm<request_response::Behaviour<peer_exchange::Codec>>,
 }
 
 impl WakuLightNode {
@@ -31,11 +38,18 @@ impl WakuLightNode {
                 tcp::Config::default().nodelay(true),
                 noise::Config::new,
                 yamux::Config::default,
-            )
-            .unwrap()
-            .with_dns()
-            .unwrap()
-            .with_behaviour(|_key| libp2p::swarm::dummy::Behaviour {})
+            )?
+            .with_dns()?
+            .with_behaviour(|_key| {
+                request_response::Behaviour::new(
+                    [(
+                        // TODO what should the protocol name be
+                        StreamProtocol::new("/SOME_NAME"),
+                        request_response::ProtocolSupport::Full,
+                    )],
+                    request_response::Config::default(),
+                )
+            })
             .unwrap()
             .with_swarm_config(|config| {
                 config
@@ -52,6 +66,36 @@ impl WakuLightNode {
         }
         Ok(Self { swarm })
     }
+
+    pub fn request_peers(&mut self, peer: &PeerId) {
+        self.swarm.behaviour_mut().send_request(
+            peer,
+            peer_exchange::messages::PeerExchangeQuery { num_peers: 5 },
+        );
+    }
+}
+
+#[derive(NetworkBehaviour)]
+#[behaviour(out_event = "WakuLightNodeEvent")]
+pub struct WakuLightNodeBehaviour {
+    peer_exchange: request_response::Behaviour<peer_exchange::Codec>,
+}
+
+#[derive(Debug)]
+pub enum WakuLightNodeEvent {
+    PeerExchange(
+        request_response::Event<messages::PeerExchangeQuery, messages::PeerExchangeResponse>,
+    ),
+}
+
+impl From<request_response::Event<messages::PeerExchangeQuery, messages::PeerExchangeResponse>>
+    for WakuLightNodeEvent
+{
+    fn from(
+        event: request_response::Event<messages::PeerExchangeQuery, messages::PeerExchangeResponse>,
+    ) -> Self {
+        Self::PeerExchange(event)
+    }
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -62,4 +106,8 @@ pub enum Error {
     Transport(#[from] libp2p::TransportError<std::io::Error>),
     #[error("Dial: {0}")]
     Dial(#[from] libp2p::swarm::DialError),
+    #[error("Noise: {0}")]
+    Noise(#[from] libp2p::noise::Error),
+    #[error("Io: {0}")]
+    Io(#[from] std::io::Error),
 }
