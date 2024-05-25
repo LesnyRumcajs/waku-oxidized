@@ -14,6 +14,7 @@ pub mod messages {
     include!(concat!(env!("OUT_DIR"), "/peer_exchange.rs"));
 }
 
+#[derive(Clone, Default)]
 pub struct Codec {}
 
 #[async_trait]

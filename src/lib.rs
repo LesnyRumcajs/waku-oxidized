@@ -1,9 +1,12 @@
-use libp2p::{identity::Keypair, noise, tcp, yamux, Multiaddr, PeerId, Swarm};
+use libp2p::{
+    identity::Keypair, noise, request_response, tcp, yamux, Multiaddr, PeerId, StreamProtocol,
+    Swarm,
+};
 use log::{error, info};
 pub mod peer_exchange;
 
 pub struct WakuLightNode {
-    pub swarm: Swarm<libp2p::swarm::dummy::Behaviour>,
+    pub swarm: Swarm<request_response::Behaviour<peer_exchange::Codec>>,
 }
 
 pub struct WakuLightNodeConfig {
@@ -32,7 +35,16 @@ impl WakuLightNode {
                 noise::Config::new,
                 yamux::Config::default,
             )?
-            .with_behaviour(|_key| libp2p::swarm::dummy::Behaviour {})
+            .with_behaviour(|_key| {
+                request_response::Behaviour::new(
+                    [(
+                        // TODO what should the protocol name be
+                        StreamProtocol::new("/SOME_NAME"),
+                        request_response::ProtocolSupport::Full,
+                    )],
+                    request_response::Config::default(),
+                )
+            })
             .unwrap()
             .build();
 
@@ -40,6 +52,13 @@ impl WakuLightNode {
             swarm.dial(peer)?;
         }
         Ok(Self { swarm })
+    }
+
+    pub fn request_peers(&mut self, peer: &PeerId) {
+        self.swarm.behaviour_mut().send_request(
+            peer,
+            peer_exchange::messages::PeerExchangeQuery { num_peers: 5 },
+        );
     }
 }
 
