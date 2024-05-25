@@ -27,7 +27,7 @@ impl request_response::Codec for Codec {
     where
         T: AsyncRead + Unpin + Send,
     {
-        let mut vec = Vec::with_capacity(RESPONSE_SIZE_MAXIMUM as usize);
+        let mut vec = Vec::with_capacity(REQUEST_SIZE_MAXIMUM as usize);
         io.read_to_end(&mut vec).await?;
         let request = Self::Request::decode_length_delimited(&vec[..])?;
         Ok(request)

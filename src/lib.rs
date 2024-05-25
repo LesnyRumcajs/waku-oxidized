@@ -9,10 +9,7 @@ mod light_push;
 mod metadata;
 mod peer_exchange;
 
-use std::{
-    num::TryFromIntError,
-    time::{Duration, SystemTime, UNIX_EPOCH},
-};
+use std::{num::TryFromIntError, time::Duration};
 
 const DEFAULT_PUBSUB_TOPIC: &str = "/waku/2/default-waku/proto";
 

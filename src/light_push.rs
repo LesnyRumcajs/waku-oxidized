@@ -5,10 +5,6 @@ use prost::Message;
 use std::io;
 
 // TODO check what these should be
-/// Max request size in bytes
-const REQUEST_SIZE_MAXIMUM: u64 = 1024 * 1024 * 1024;
-/// Max response size in bytes
-const RESPONSE_SIZE_MAXIMUM: u64 = 10 * 1024 * 1024 * 1024;
 const MAX_LIGHTPUSH_RPC_SIZE: u64 = 1024 * 1024 * 1024;
 
 pub mod messages {
@@ -46,7 +42,7 @@ impl request_response::Codec for Codec {
     where
         T: AsyncRead + Unpin + Send,
     {
-        let mut vec = Vec::with_capacity(RESPONSE_SIZE_MAXIMUM as usize);
+        let mut vec = Vec::with_capacity(MAX_LIGHTPUSH_RPC_SIZE as usize);
 
         io.read_to_end(&mut vec).await?;
         let response = Self::Response::decode_length_delimited(&vec[..])?;
