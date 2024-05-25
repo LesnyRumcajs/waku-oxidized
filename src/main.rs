@@ -25,6 +25,7 @@ async fn main() -> anyhow::Result<()> {
     );
     let mut node = WakuLightNode::new_with_config(config)?;
 
+    let mut requested = false;
     while let Some(e) = node.swarm.next().await {
         println!("Got event {:?}", e);
         let peers = {
@@ -36,8 +37,11 @@ async fn main() -> anyhow::Result<()> {
             peers
         };
 
-        for peer in peers.iter() {
-            node.request_peers(peer);
+        if !requested {
+            for peer in peers.iter() {
+                node.request_peers(peer);
+                requested = true;
+            }
         }
     }
 
