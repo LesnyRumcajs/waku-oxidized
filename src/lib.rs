@@ -30,8 +30,7 @@ impl WakuLightNode {
                 tcp::Config::default(),
                 noise::Config::new,
                 yamux::Config::default,
-            )
-            .unwrap()
+            )?
             .with_behaviour(|_key| libp2p::swarm::dummy::Behaviour {})
             .unwrap()
             .build();
@@ -51,4 +50,6 @@ pub enum Error {
     Transport(#[from] libp2p::TransportError<std::io::Error>),
     #[error("Dial: {0}")]
     Dial(#[from] libp2p::swarm::DialError),
+    #[error("Noise: {0}")]
+    Noise(#[from] libp2p::noise::Error),
 }
