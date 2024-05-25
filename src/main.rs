@@ -27,8 +27,17 @@ async fn main() -> anyhow::Result<()> {
 
     while let Some(e) = node.swarm.next().await {
         println!("Got event {:?}", e);
-        for peer in node.swarm.connected_peers() {
-            println!("Connected to {:?}", peer);
+        let peers = {
+            let mut peers = Vec::new();
+            for peer in node.swarm.connected_peers() {
+                println!("Connected to {:?}", peer);
+                peers.push(*peer);
+            }
+            peers
+        };
+
+        for peer in peers.iter() {
+            node.request_peers(peer);
         }
     }
 
