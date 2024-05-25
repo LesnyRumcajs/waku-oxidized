@@ -78,10 +78,10 @@ impl WakuLightNode {
         content_topic: String,
         payload: Vec<u8>,
     ) -> Result<(), Error> {
-        let timestamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)?
-            .as_secs()
-            .try_into()?;
+        // let timestamp = SystemTime::now()
+        //     .duration_since(UNIX_EPOCH)?
+        //     .as_secs()
+        //     .try_into()?;
         self.swarm.behaviour_mut().light_push.send_request(
             peer,
             light_push::messages::PushRequest {
@@ -89,10 +89,10 @@ impl WakuLightNode {
                 message: Some(light_push::message::WakuMessage {
                     content_topic,
                     payload,
-                    ephemeral: Some(false),
+                    ephemeral: None,
                     meta: None,
-                    version: Some(1),
-                    timestamp: Some(timestamp),
+                    version: None,
+                    timestamp: None,
                 }),
             },
         );
@@ -127,7 +127,7 @@ impl WakuLightNodeBehaviour {
             ),
             light_push: request_response::Behaviour::new(
                 [(
-                    StreamProtocol::new("/vac/waku/metadata/1.0.0"),
+                    StreamProtocol::new("/vac/waku/lightpush/2.0.0-beta1"),
                     request_response::ProtocolSupport::Full,
                 )],
                 request_response::Config::default(),
