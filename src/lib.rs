@@ -1,5 +1,6 @@
 use libp2p::{identity::Keypair, noise, tcp, yamux, Multiaddr, PeerId, Swarm};
 use log::{error, info};
+pub mod peer_exchange;
 
 pub struct WakuLightNode {
     pub swarm: Swarm<libp2p::swarm::dummy::Behaviour>,
