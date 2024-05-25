@@ -5,10 +5,7 @@ use prost::Message;
 use std::io;
 
 // TODO check what these should be
-/// Max request size in bytes
-const REQUEST_SIZE_MAXIMUM: u64 = 1024 * 1024;
-/// Max response size in bytes
-const RESPONSE_SIZE_MAXIMUM: u64 = 10 * 1024 * 1024;
+const MAX_LIGHTPUSH_RPC_SIZE: u64 = 1024 * 1024 * 1024;
 
 pub mod messages {
     include!(concat!(env!("OUT_DIR"), "/waku.lightpush.rs"));
@@ -24,22 +21,16 @@ pub struct Codec {}
 #[async_trait]
 impl request_response::Codec for Codec {
     type Protocol = StreamProtocol;
-    type Request = messages::PushRequest;
-    type Response = messages::PushResponse;
+    type Request = messages::PushRpc;
+    type Response = messages::PushRpc;
 
-    async fn read_request<T>(
-        &mut self,
-        _: &Self::Protocol,
-        io: &mut T,
-    ) -> io::Result<messages::PushRequest>
+    async fn read_request<T>(&mut self, _: &Self::Protocol, io: &mut T) -> io::Result<Self::Request>
     where
         T: AsyncRead + Unpin + Send,
     {
-        let mut vec = Vec::new();
-
-        io.take(REQUEST_SIZE_MAXIMUM).read_to_end(&mut vec).await?;
-
-        let request = messages::PushRequest::decode(&vec[..])?;
+        let mut vec = Vec::with_capacity(MAX_LIGHTPUSH_RPC_SIZE as usize);
+        io.read_to_end(&mut vec).await?;
+        let request = Self::Request::decode_length_delimited(&vec[..])?;
         Ok(request)
     }
 
@@ -47,14 +38,14 @@ impl request_response::Codec for Codec {
         &mut self,
         _: &Self::Protocol,
         io: &mut T,
-    ) -> io::Result<messages::PushResponse>
+    ) -> io::Result<Self::Response>
     where
         T: AsyncRead + Unpin + Send,
     {
-        let mut vec = Vec::new();
+        let mut vec = Vec::with_capacity(MAX_LIGHTPUSH_RPC_SIZE as usize);
 
-        io.take(RESPONSE_SIZE_MAXIMUM).read_to_end(&mut vec).await?;
-        let response = messages::PushResponse::decode(&vec[..])?;
+        io.read_to_end(&mut vec).await?;
+        let response = Self::Response::decode_length_delimited(&vec[..])?;
         Ok(response)
     }
 
@@ -67,9 +58,7 @@ impl request_response::Codec for Codec {
     where
         T: AsyncWrite + Unpin + Send,
     {
-        let mut buf = Vec::with_capacity(req.encoded_len());
-        req.encode(&mut buf)?;
-
+        let buf = req.encode_length_delimited_to_vec();
         io.write_all(buf.as_ref()).await?;
 
         Ok(())
@@ -84,10 +73,7 @@ impl request_response::Codec for Codec {
     where
         T: AsyncWrite + Unpin + Send,
     {
-        let mut buf = Vec::with_capacity(resp.encoded_len());
-        buf.reserve(resp.encoded_len());
-        resp.encode(&mut buf)?;
-
+        let buf = resp.encode_length_delimited_to_vec();
         io.write_all(buf.as_ref()).await?;
 
         Ok(())

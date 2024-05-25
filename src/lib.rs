@@ -9,7 +9,7 @@ mod light_push;
 mod metadata;
 mod peer_exchange;
 
-use std::time::Duration;
+use std::{num::TryFromIntError, time::Duration};
 
 const DEFAULT_PUBSUB_TOPIC: &str = "/waku/2/default-waku/proto";
 
@@ -65,25 +65,40 @@ impl WakuLightNode {
     pub fn request_peers(&mut self, peer: &PeerId) {
         self.swarm.behaviour_mut().peer_exchange.send_request(
             peer,
-            peer_exchange::messages::PeerExchangeQuery { num_peers: 5 },
+            peer_exchange::messages::PeerExchangeRpc {
+                query: Some(peer_exchange::messages::PeerExchangeQuery { num_peers: 5 }),
+                response: None,
+            },
         );
     }
 
-    pub fn send_message(&mut self, peer: &PeerId, content_topic: String, payload: Vec<u8>) {
+    pub fn send_message(
+        &mut self,
+        peer: &PeerId,
+        content_topic: String,
+        payload: Vec<u8>,
+    ) -> Result<(), Error> {
+        // let timestamp = SystemTime::now()
+        //     .duration_since(UNIX_EPOCH)?
+        //     .as_secs()
+        //     .try_into()?;
         self.swarm.behaviour_mut().light_push.send_request(
             peer,
-            light_push::messages::PushRequest {
-                pubsub_topic: DEFAULT_PUBSUB_TOPIC.to_string(),
-                message: Some(light_push::message::WakuMessage {
-                    content_topic,
-                    payload,
-                    ephemeral: Some(false),
-                    meta: None,
-                    timestamp: None,
-                    version: None,
+            light_push::messages::PushRpc {
+                request_id: "0".to_owned(),
+                response: None,
+                request: Some(light_push::messages::PushRequest {
+                    pubsub_topic: DEFAULT_PUBSUB_TOPIC.to_string(),
+                    message: Some(light_push::message::WakuMessage {
+                        content_topic,
+                        payload,
+                        ephemeral: Some(false),
+                        ..Default::default()
+                    }),
                 }),
             },
         );
+        Ok(())
     }
 }
 
@@ -114,7 +129,7 @@ impl WakuLightNodeBehaviour {
             ),
             light_push: request_response::Behaviour::new(
                 [(
-                    StreamProtocol::new("/vac/waku/metadata/1.0.0"),
+                    StreamProtocol::new("/vac/waku/lightpush/2.0.0-beta1"),
                     request_response::ProtocolSupport::Full,
                 )],
                 request_response::Config::default(),
@@ -125,9 +140,7 @@ impl WakuLightNodeBehaviour {
 
 #[derive(Debug)]
 pub enum WakuLightNodeEvent {
-    PeerExchange(
-        request_response::Event<messages::PeerExchangeQuery, messages::PeerExchangeResponse>,
-    ),
+    PeerExchange(request_response::Event<messages::PeerExchangeRpc, messages::PeerExchangeRpc>),
     Metadata(
         request_response::Event<
             metadata::messages::WakuMetadataRequest,
@@ -135,18 +148,15 @@ pub enum WakuLightNodeEvent {
         >,
     ),
     LightPush(
-        request_response::Event<
-            light_push::messages::PushRequest,
-            light_push::messages::PushResponse,
-        >,
+        request_response::Event<light_push::messages::PushRpc, light_push::messages::PushRpc>,
     ),
 }
 
-impl From<request_response::Event<messages::PeerExchangeQuery, messages::PeerExchangeResponse>>
+impl From<request_response::Event<messages::PeerExchangeRpc, messages::PeerExchangeRpc>>
     for WakuLightNodeEvent
 {
     fn from(
-        event: request_response::Event<messages::PeerExchangeQuery, messages::PeerExchangeResponse>,
+        event: request_response::Event<messages::PeerExchangeRpc, messages::PeerExchangeRpc>,
     ) -> Self {
         Self::PeerExchange(event)
     }
@@ -170,18 +180,13 @@ impl
     }
 }
 
-impl
-    From<
-        request_response::Event<
-            light_push::messages::PushRequest,
-            light_push::messages::PushResponse,
-        >,
-    > for WakuLightNodeEvent
+impl From<request_response::Event<light_push::messages::PushRpc, light_push::messages::PushRpc>>
+    for WakuLightNodeEvent
 {
     fn from(
         event: request_response::Event<
-            light_push::messages::PushRequest,
-            light_push::messages::PushResponse,
+            light_push::messages::PushRpc,
+            light_push::messages::PushRpc,
         >,
     ) -> Self {
         Self::LightPush(event)
@@ -199,4 +204,8 @@ pub enum Error {
     Noise(#[from] libp2p::noise::Error),
     #[error("Io: {0}")]
     Io(#[from] std::io::Error),
+    #[error("System time: {0}")]
+    SystemTime(#[from] std::time::SystemTimeError),
+    #[error("Int conversion: {0}")]
+    IntConversion(#[from] TryFromIntError),
 }
