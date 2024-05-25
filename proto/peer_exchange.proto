@@ -16,5 +16,5 @@ message PeerExchangeResponse {
 
 message PeerExchangeRPC {
   PeerExchangeQuery query = 1;
-  PeerExchangeResponse response = 2;
+  optional PeerExchangeResponse response = 2;
 }

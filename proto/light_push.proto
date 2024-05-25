@@ -5,18 +5,17 @@ package waku.lightpush;
 import "message.proto";
 
 message PushRequest {
-    string pubsub_topic = 1;
-    waku.message.WakuMessage message = 2;
+  string pubsub_topic = 1;
+  waku.message.WakuMessage message = 2;
 }
 
 message PushResponse {
-    bool is_success = 1;
-    // Error messages, etc
-    optional string info = 2;
+  bool is_success = 1;
+  optional string info = 2;
 }
 
-message PushRPC {
-    string request_id = 1;
-    PushRequest request = 2;
-    PushResponse response = 3;
+message PushRpc {
+  string request_id = 1;
+  optional PushRequest request = 2;
+  optional PushResponse response = 3;
 }
