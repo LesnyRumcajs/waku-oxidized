@@ -5,6 +5,7 @@ use libp2p::{
 use log::{error, info};
 use peer_exchange::messages;
 
+mod metadata;
 pub mod peer_exchange;
 
 use std::time::Duration;
@@ -70,6 +71,7 @@ impl WakuLightNode {
 #[behaviour(out_event = "WakuLightNodeEvent")]
 pub struct WakuLightNodeBehaviour {
     peer_exchange: request_response::Behaviour<peer_exchange::Codec>,
+    metadata: request_response::Behaviour<metadata::Codec>,
 }
 
 impl WakuLightNodeBehaviour {
@@ -78,6 +80,13 @@ impl WakuLightNodeBehaviour {
             peer_exchange: request_response::Behaviour::new(
                 [(
                     StreamProtocol::new("/vac/waku/peer-exchange/2.0.0-alpha1"),
+                    request_response::ProtocolSupport::Full,
+                )],
+                request_response::Config::default(),
+            ),
+            metadata: request_response::Behaviour::new(
+                [(
+                    StreamProtocol::new("/vac/waku/metadata/1.0.0"),
                     request_response::ProtocolSupport::Full,
                 )],
                 request_response::Config::default(),
@@ -91,6 +100,12 @@ pub enum WakuLightNodeEvent {
     PeerExchange(
         request_response::Event<messages::PeerExchangeQuery, messages::PeerExchangeResponse>,
     ),
+    Metadata(
+        request_response::Event<
+            metadata::messages::WakuMetadataRequest,
+            metadata::messages::WakuMetadataResponse,
+        >,
+    ),
 }
 
 impl From<request_response::Event<messages::PeerExchangeQuery, messages::PeerExchangeResponse>>
@@ -100,6 +115,24 @@ impl From<request_response::Event<messages::PeerExchangeQuery, messages::PeerExc
         event: request_response::Event<messages::PeerExchangeQuery, messages::PeerExchangeResponse>,
     ) -> Self {
         Self::PeerExchange(event)
+    }
+}
+
+impl
+    From<
+        request_response::Event<
+            metadata::messages::WakuMetadataRequest,
+            metadata::messages::WakuMetadataResponse,
+        >,
+    > for WakuLightNodeEvent
+{
+    fn from(
+        event: request_response::Event<
+            metadata::messages::WakuMetadataRequest,
+            metadata::messages::WakuMetadataResponse,
+        >,
+    ) -> Self {
+        Self::Metadata(event)
     }
 }
 
