@@ -63,9 +63,8 @@ impl request_response::Codec for Codec {
     where
         T: AsyncWrite + Unpin + Send,
     {
-        let mut buf = Vec::new();
-        buf.reserve(req.encoded_len());
-        req.encode(&mut buf).unwrap();
+        let mut buf = Vec::with_capacity(req.encoded_len());
+        req.encode(&mut buf)?;
 
         io.write_all(buf.as_ref()).await?;
 
@@ -81,7 +80,7 @@ impl request_response::Codec for Codec {
     where
         T: AsyncWrite + Unpin + Send,
     {
-        let mut buf = Vec::new();
+        let mut buf = Vec::with_capacity(resp.encoded_len());
         buf.reserve(resp.encoded_len());
         resp.encode(&mut buf)?;
 
