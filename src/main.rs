@@ -51,6 +51,7 @@ async fn main() -> anyhow::Result<()> {
                 Some(SwarmEvent::ConnectionEstablished { peer_id, endpoint, .. }) => {
                     println!("Connection estabilished with {peer_id:?} on {endpoint:?}");
                     node.request_peers(&peer_id);
+                    node.filter_subscribe(&peer_id, vec![cli.topic.clone()]);
                     node.send_message(&peer_id, cli.topic.clone(), cli.message.clone().into())?;
                 }
                 None => {

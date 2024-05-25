@@ -1,15 +1,19 @@
+use filter::messages::filter_subscribe_request::FilterSubscribeType;
 use libp2p::{
     identity::Keypair, noise, request_response, swarm::NetworkBehaviour, tcp, yamux, Multiaddr,
     PeerId, StreamProtocol, Swarm,
 };
 use log::{error, info};
-use peer_exchange::messages;
 
+mod filter;
 mod light_push;
 mod metadata;
 mod peer_exchange;
 
-use std::{num::TryFromIntError, time::Duration};
+use std::{
+    num::TryFromIntError,
+    time::{Duration, SystemTime, UNIX_EPOCH},
+};
 
 const DEFAULT_PUBSUB_TOPIC: &str = "/waku/2/default-waku/proto";
 
@@ -78,10 +82,11 @@ impl WakuLightNode {
         content_topic: String,
         payload: Vec<u8>,
     ) -> Result<(), Error> {
-        // let timestamp = SystemTime::now()
-        //     .duration_since(UNIX_EPOCH)?
-        //     .as_secs()
-        //     .try_into()?;
+        let timestamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)?
+            .as_secs()
+            .try_into()?;
+
         self.swarm.behaviour_mut().light_push.send_request(
             peer,
             light_push::messages::PushRpc {
@@ -93,12 +98,25 @@ impl WakuLightNode {
                         content_topic,
                         payload,
                         ephemeral: Some(false),
+                        timestamp: Some(timestamp),
                         ..Default::default()
                     }),
                 }),
             },
         );
         Ok(())
+    }
+
+    pub fn filter_subscribe(&mut self, peer: &PeerId, content_topics: Vec<String>) {
+        self.swarm.behaviour_mut().filter.send_request(
+            peer,
+            filter::messages::FilterSubscribeRequest {
+                pubsub_topic: Some(DEFAULT_PUBSUB_TOPIC.to_string()),
+                content_topics,
+                request_id: "0".to_string(),
+                filter_subscribe_type: FilterSubscribeType::Subscribe as i32,
+            },
+        );
     }
 }
 
@@ -108,6 +126,7 @@ pub struct WakuLightNodeBehaviour {
     peer_exchange: request_response::Behaviour<peer_exchange::Codec>,
     metadata: request_response::Behaviour<metadata::Codec>,
     light_push: request_response::Behaviour<light_push::Codec>,
+    filter: request_response::Behaviour<filter::Codec>,
 }
 
 impl WakuLightNodeBehaviour {
@@ -134,13 +153,25 @@ impl WakuLightNodeBehaviour {
                 )],
                 request_response::Config::default(),
             ),
+            filter: request_response::Behaviour::new(
+                [(
+                    StreamProtocol::new("/vac/waku/filter-subscribe/2.0.0-beta1"),
+                    request_response::ProtocolSupport::Full,
+                )],
+                request_response::Config::default(),
+            ),
         }
     }
 }
 
 #[derive(Debug)]
 pub enum WakuLightNodeEvent {
-    PeerExchange(request_response::Event<messages::PeerExchangeRpc, messages::PeerExchangeRpc>),
+    PeerExchange(
+        request_response::Event<
+            peer_exchange::messages::PeerExchangeRpc,
+            peer_exchange::messages::PeerExchangeRpc,
+        >,
+    ),
     Metadata(
         request_response::Event<
             metadata::messages::WakuMetadataRequest,
@@ -150,15 +181,47 @@ pub enum WakuLightNodeEvent {
     LightPush(
         request_response::Event<light_push::messages::PushRpc, light_push::messages::PushRpc>,
     ),
+    Filter(
+        request_response::Event<
+            filter::messages::FilterSubscribeRequest,
+            filter::messages::FilterSubscribeResponse,
+        >,
+    ),
 }
 
-impl From<request_response::Event<messages::PeerExchangeRpc, messages::PeerExchangeRpc>>
-    for WakuLightNodeEvent
+impl
+    From<
+        request_response::Event<
+            peer_exchange::messages::PeerExchangeRpc,
+            peer_exchange::messages::PeerExchangeRpc,
+        >,
+    > for WakuLightNodeEvent
 {
     fn from(
-        event: request_response::Event<messages::PeerExchangeRpc, messages::PeerExchangeRpc>,
+        event: request_response::Event<
+            peer_exchange::messages::PeerExchangeRpc,
+            peer_exchange::messages::PeerExchangeRpc,
+        >,
     ) -> Self {
         Self::PeerExchange(event)
+    }
+}
+
+impl
+    From<
+        request_response::Event<
+            filter::messages::FilterSubscribeRequest,
+            filter::messages::FilterSubscribeResponse,
+        >,
+    > for WakuLightNodeEvent
+{
+    fn from(
+        event: request_response::Event<
+            filter::messages::FilterSubscribeRequest,
+            filter::messages::FilterSubscribeResponse,
+        >,
+    ) -> Self {
+        Self::Filter(event)
     }
 }
 
