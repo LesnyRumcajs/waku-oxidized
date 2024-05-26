@@ -17,8 +17,6 @@ pub mod messages {
     include!(concat!(env!("OUT_DIR"), "/peer_exchange.rs"));
 }
 
-pub use messages::*;
-
 #[derive(Clone, Default)]
 pub struct Codec {}
 

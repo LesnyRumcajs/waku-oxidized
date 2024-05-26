@@ -16,8 +16,6 @@ pub mod messages {
 
 pub const PROTOCOL_NAME: &str = "/vac/waku/metadata/1.0.0";
 
-pub use messages::*;
-
 #[derive(Clone, Default)]
 pub struct Codec {}
 
