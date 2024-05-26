@@ -69,6 +69,7 @@ impl WakuLightNode {
         Ok(Self { swarm })
     }
 
+    /// Send a peer exchange message request
     pub fn request_peers(&mut self, peer: &PeerId) {
         self.swarm.behaviour_mut().peer_exchange.send_request(
             peer,
@@ -79,7 +80,7 @@ impl WakuLightNode {
         );
     }
 
-    /// Send a Waku message
+    /// Send a Waku message via light-push
     pub fn send_message(
         &mut self,
         peer: &PeerId,
