@@ -1,24 +1,31 @@
+use filter::messages::filter_subscribe_request::FilterSubscribeType;
 use libp2p::{
     identity::Keypair, noise, request_response, swarm::NetworkBehaviour, tcp, yamux, Multiaddr,
     PeerId, StreamProtocol, Swarm,
 };
 use log::{error, info};
-use peer_exchange::messages;
 
+mod filter;
 mod light_push;
 mod metadata;
 mod peer_exchange;
 
-use std::{num::TryFromIntError, time::Duration};
+use std::{
+    num::TryFromIntError,
+    time::{Duration, SystemTime, UNIX_EPOCH},
+};
 
 const DEFAULT_PUBSUB_TOPIC: &str = "/waku/2/default-waku/proto";
 
 pub struct WakuLightNodeConfig {
+    /// Initial nodes to connect to
     pub peers: Vec<Multiaddr>,
+    /// A libp2p identity keypair
     pub keypair: Keypair,
 }
 
 impl WakuLightNodeConfig {
+    /// Create config, generating a keypair unless one is given
     pub fn new(keypair: Option<Keypair>, peers: Vec<Multiaddr>) -> Self {
         Self {
             keypair: keypair.unwrap_or(Keypair::generate_ed25519()),
@@ -45,7 +52,7 @@ impl WakuLightNode {
             )?
             .with_dns()?
             .with_behaviour(|_key| WakuLightNodeBehaviour::new())
-            .unwrap()
+            .unwrap() // Infalliable
             .with_swarm_config(|config| {
                 config
                     .with_notify_handler_buffer_size(
@@ -72,16 +79,18 @@ impl WakuLightNode {
         );
     }
 
+    /// Send a Waku message
     pub fn send_message(
         &mut self,
         peer: &PeerId,
         content_topic: String,
         payload: Vec<u8>,
     ) -> Result<(), Error> {
-        // let timestamp = SystemTime::now()
-        //     .duration_since(UNIX_EPOCH)?
-        //     .as_secs()
-        //     .try_into()?;
+        let timestamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)?
+            .as_secs()
+            .try_into()?;
+
         self.swarm.behaviour_mut().light_push.send_request(
             peer,
             light_push::messages::PushRpc {
@@ -93,12 +102,39 @@ impl WakuLightNode {
                         content_topic,
                         payload,
                         ephemeral: Some(false),
+                        timestamp: Some(timestamp),
                         ..Default::default()
                     }),
                 }),
             },
         );
         Ok(())
+    }
+
+    /// Subscribe to topic(s) using the filter protocol
+    pub fn filter_subscribe(&mut self, peer: &PeerId, content_topics: Vec<String>) {
+        self.swarm.behaviour_mut().filter.send_request(
+            peer,
+            filter::FilterSubscribeRequest {
+                pubsub_topic: Some(DEFAULT_PUBSUB_TOPIC.to_string()),
+                content_topics,
+                request_id: "0".to_string(),
+                filter_subscribe_type: FilterSubscribeType::Subscribe as i32,
+            },
+        );
+    }
+
+    /// Unsubscribe from topic(s) using the filter protocol
+    pub fn filter_unsubscribe(&mut self, peer: &PeerId, content_topics: Vec<String>) {
+        self.swarm.behaviour_mut().filter.send_request(
+            peer,
+            filter::messages::FilterSubscribeRequest {
+                pubsub_topic: Some(DEFAULT_PUBSUB_TOPIC.to_string()),
+                content_topics,
+                request_id: "0".to_string(),
+                filter_subscribe_type: FilterSubscribeType::Unsubscribe as i32,
+            },
+        );
     }
 }
 
@@ -108,6 +144,7 @@ pub struct WakuLightNodeBehaviour {
     peer_exchange: request_response::Behaviour<peer_exchange::Codec>,
     metadata: request_response::Behaviour<metadata::Codec>,
     light_push: request_response::Behaviour<light_push::Codec>,
+    filter: request_response::Behaviour<filter::Codec>,
 }
 
 impl WakuLightNodeBehaviour {
@@ -115,21 +152,28 @@ impl WakuLightNodeBehaviour {
         Self {
             peer_exchange: request_response::Behaviour::new(
                 [(
-                    StreamProtocol::new("/vac/waku/peer-exchange/2.0.0-alpha1"),
+                    StreamProtocol::new(peer_exchange::PROTOCOL_NAME),
                     request_response::ProtocolSupport::Full,
                 )],
                 request_response::Config::default(),
             ),
             metadata: request_response::Behaviour::new(
                 [(
-                    StreamProtocol::new("/vac/waku/metadata/1.0.0"),
+                    StreamProtocol::new(metadata::PROTOCOL_NAME),
                     request_response::ProtocolSupport::Full,
                 )],
                 request_response::Config::default(),
             ),
             light_push: request_response::Behaviour::new(
                 [(
-                    StreamProtocol::new("/vac/waku/lightpush/2.0.0-beta1"),
+                    StreamProtocol::new(light_push::PROTOCOL_NAME),
+                    request_response::ProtocolSupport::Full,
+                )],
+                request_response::Config::default(),
+            ),
+            filter: request_response::Behaviour::new(
+                [(
+                    StreamProtocol::new(filter::PROTOCOL_NAME),
                     request_response::ProtocolSupport::Full,
                 )],
                 request_response::Config::default(),
@@ -138,9 +182,15 @@ impl WakuLightNodeBehaviour {
     }
 }
 
+/// An event from one of the Waku light node protocols
 #[derive(Debug)]
 pub enum WakuLightNodeEvent {
-    PeerExchange(request_response::Event<messages::PeerExchangeRpc, messages::PeerExchangeRpc>),
+    PeerExchange(
+        request_response::Event<
+            peer_exchange::messages::PeerExchangeRpc,
+            peer_exchange::messages::PeerExchangeRpc,
+        >,
+    ),
     Metadata(
         request_response::Event<
             metadata::messages::WakuMetadataRequest,
@@ -150,15 +200,47 @@ pub enum WakuLightNodeEvent {
     LightPush(
         request_response::Event<light_push::messages::PushRpc, light_push::messages::PushRpc>,
     ),
+    Filter(
+        request_response::Event<
+            filter::messages::FilterSubscribeRequest,
+            filter::messages::FilterSubscribeResponse,
+        >,
+    ),
 }
 
-impl From<request_response::Event<messages::PeerExchangeRpc, messages::PeerExchangeRpc>>
-    for WakuLightNodeEvent
+impl
+    From<
+        request_response::Event<
+            peer_exchange::messages::PeerExchangeRpc,
+            peer_exchange::messages::PeerExchangeRpc,
+        >,
+    > for WakuLightNodeEvent
 {
     fn from(
-        event: request_response::Event<messages::PeerExchangeRpc, messages::PeerExchangeRpc>,
+        event: request_response::Event<
+            peer_exchange::messages::PeerExchangeRpc,
+            peer_exchange::messages::PeerExchangeRpc,
+        >,
     ) -> Self {
         Self::PeerExchange(event)
+    }
+}
+
+impl
+    From<
+        request_response::Event<
+            filter::messages::FilterSubscribeRequest,
+            filter::messages::FilterSubscribeResponse,
+        >,
+    > for WakuLightNodeEvent
+{
+    fn from(
+        event: request_response::Event<
+            filter::messages::FilterSubscribeRequest,
+            filter::messages::FilterSubscribeResponse,
+        >,
+    ) -> Self {
+        Self::Filter(event)
     }
 }
 
@@ -192,6 +274,8 @@ impl From<request_response::Event<light_push::messages::PushRpc, light_push::mes
         Self::LightPush(event)
     }
 }
+
+/// Error when setting up or running a light node
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error("Multiaddr: {0}")]

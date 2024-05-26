@@ -15,6 +15,8 @@ pub mod message {
     include!(concat!(env!("OUT_DIR"), "/waku.message.rs"));
 }
 
+pub const PROTOCOL_NAME: &str = "/vac/waku/lightpush/2.0.0-beta1";
+
 #[derive(Clone, Default)]
 pub struct Codec {}
 
