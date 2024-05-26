@@ -1,7 +1,10 @@
 [package]
 name = "waku-oxidized"
+description = "A Waku light node implementation"
 version = "0.0.1"
 edition = "2021"
+license = "MIT"
+repository = "https://github.com/LesnyRumcajs/waku-oxidized"
 
 [dependencies]
 thiserror = "1.0.37"
