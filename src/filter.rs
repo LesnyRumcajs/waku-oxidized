@@ -1,10 +1,10 @@
+//! Codec for the filter-subscribe protocol
 use async_trait::async_trait;
 use futures::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use libp2p::{request_response, StreamProtocol};
 use prost::Message;
 use std::io;
 
-// TODO check what these should be
 const MAX_FILTER_RPC_SIZE: u64 = 1024 * 1024 * 1024;
 
 pub mod messages {

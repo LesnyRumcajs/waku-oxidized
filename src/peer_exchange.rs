@@ -5,7 +5,6 @@ use libp2p::{request_response, StreamProtocol};
 use prost::Message;
 use std::io;
 
-// TODO check what these should be
 /// Max request size in bytes
 const REQUEST_SIZE_MAXIMUM: u64 = 1024 * 1024;
 /// Max response size in bytes
