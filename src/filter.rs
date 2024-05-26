@@ -11,13 +11,9 @@ pub mod messages {
     include!(concat!(env!("OUT_DIR"), "/waku.filter.v2.rs"));
 }
 
-// pub mod message {
-//     use crate::light_push::message::WakuMessage;
-// }
+pub const PROTOCOL_NAME: &str = "/vac/waku/filter-subscribe/2.0.0-beta1";
 
-// pub mod message {
-//     include!(concat!(env!("OUT_DIR"), "/waku.message.rs"));
-// }
+pub use messages::*;
 
 #[derive(Clone, Default)]
 pub struct Codec {}

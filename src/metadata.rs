@@ -14,6 +14,10 @@ pub mod messages {
     include!(concat!(env!("OUT_DIR"), "/waku.metadata.rs"));
 }
 
+pub const PROTOCOL_NAME: &str = "/vac/waku/metadata/1.0.0";
+
+pub use messages::*;
+
 #[derive(Clone, Default)]
 pub struct Codec {}
 

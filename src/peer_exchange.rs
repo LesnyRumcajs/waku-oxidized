@@ -1,3 +1,4 @@
+//! Codec for the peer-exchange protocol
 use async_trait::async_trait;
 use futures::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use libp2p::{request_response, StreamProtocol};
@@ -10,9 +11,13 @@ const REQUEST_SIZE_MAXIMUM: u64 = 1024 * 1024;
 /// Max response size in bytes
 const RESPONSE_SIZE_MAXIMUM: u64 = 10 * 1024 * 1024;
 
+pub const PROTOCOL_NAME: &str = "/vac/waku/peer-exchange/2.0.0-alpha1";
+
 pub mod messages {
     include!(concat!(env!("OUT_DIR"), "/peer_exchange.rs"));
 }
+
+pub use messages::*;
 
 #[derive(Clone, Default)]
 pub struct Codec {}
